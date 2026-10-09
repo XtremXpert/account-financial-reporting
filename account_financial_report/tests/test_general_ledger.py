@@ -102,7 +102,9 @@ class TestGeneralLedgerReport(AccountTestInvoicingCommon):
         move = self.env["account.move"].create(move_vals)
         move.action_post()
 
-    def _get_report_lines(self, with_partners=False, account_ids=False):
+    def _get_report_lines(
+        self, with_partners=False, account_ids=False, grouped_by="partners"
+    ):
         centralize = True
         if with_partners:
             centralize = False
@@ -117,6 +119,7 @@ class TestGeneralLedgerReport(AccountTestInvoicingCommon):
                 "account_ids": account_ids,
                 "fy_start_date": self.fy_date_start,
                 "centralize": centralize,
+                "grouped_by": grouped_by,
             }
         )
         data = general_ledger._prepare_report_data()
@@ -921,3 +924,28 @@ class TestGeneralLedgerReport(AccountTestInvoicingCommon):
                 entry.get("id"),
                 f"Report contains a line with falsy id: {entry}",
             )
+
+    def test_07_grouped_by_none_initial_balance(self):
+        """The General Ledger without grouping computes initial balances.
+
+        Odoo 20 changed the signature of read_group(); the "none" grouping
+        must not crash and must report the initial balance of the account.
+        """
+        self._add_move(
+            date=self.previous_fy_date_end,
+            receivable_debit=1000,
+            receivable_credit=0,
+            income_debit=0,
+            income_credit=1000,
+        )
+        res_data = self._get_report_lines(grouped_by="none")
+        general_ledger = res_data["general_ledger"]
+        self.assertTrue(
+            self.check_account_in_report(self.receivable_account.id, general_ledger)
+        )
+        receivable_init_balance = self._get_initial_balance(
+            self.receivable_account.id, general_ledger
+        )
+        self.assertEqual(receivable_init_balance["debit"], 1000)
+        self.assertEqual(receivable_init_balance["credit"], 0)
+        self.assertEqual(receivable_init_balance["balance"], 1000)

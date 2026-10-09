@@ -211,9 +211,14 @@ class GeneralLedgerReport(models.AbstractModel):
         domain = list(base_domain) + [("date", "<", date_from)]
         if account_ids:
             domain += [("account_id", "in", account_ids)]
-        rows = self.env["account.move.line"].read_group(
+        rows = self.env["account.move.line"].formatted_read_group(
             domain=domain,
-            fields=["account_id", "debit", "credit", "balance", "amount_currency:sum"],
+            aggregates=[
+                "debit:sum",
+                "credit:sum",
+                "balance:sum",
+                "amount_currency:sum",
+            ],
             groupby=["account_id"],
         )
         covered_ids = {
