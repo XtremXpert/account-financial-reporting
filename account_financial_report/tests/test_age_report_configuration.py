@@ -1,8 +1,11 @@
 #  Copyright 2023 Tecnativa - Carolina Fernandez
 #  License AGPL-3.0 or later (http://www.gnu.org/licenses/agpl.html).
 
+from psycopg2 import IntegrityError
+
 from odoo.exceptions import ValidationError
 from odoo.tests import common, tagged
+from odoo.tools import mute_logger
 
 
 @tagged("post_install", "-at_install")
@@ -40,3 +43,11 @@ class TestAccountAgeReportConfiguration(common.TransactionCase):
 
         with self.assertRaises(ValidationError):
             self.account_age_report_config.line_ids.inferior_limit = -1
+
+    @mute_logger("odoo.sql_db")
+    def test_unique_line_name_per_configuration(self):
+        with self.assertRaises(IntegrityError):
+            self.account_age_report_config.write(
+                {"line_ids": [(0, 0, {"name": "1-30", "inferior_limit": 60})]}
+            )
+            self.env.flush_all()
