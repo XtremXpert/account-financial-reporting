@@ -26,7 +26,7 @@ class TestTrialBalanceReport(AccountTestInvoicingCommon):
                 tracking_disable=True,
             )
         )
-        # Odoo 20 : plus d'account.group ; les « groupes » sont des comptes parents
+        # Odoo 20: no more account.group; "groups" are parent accounts
         cls.group1 = cls._create_account_account(
             cls, {"code": "1", "name": "Group 1", "account_type": "income_other"}
         )
@@ -86,9 +86,9 @@ class TestTrialBalanceReport(AccountTestInvoicingCommon):
                 "account_type": "income_other",
             },
         )
-        # hiérarchie (comme les préfixes d'origine : 100 sous « 1 », 200/201 sous « 2 » ;
-        # « 11 » reste un sous-groupe sans compte, le compte de résultats non
-        # affectés 999999 n'appartient à aucun groupe)
+        # hierarchy (same as the original code prefixes: 100 under "1", 200/201
+        # under "2"; "11" stays a sub-group without account, the unaffected
+        # earnings account 999999 belongs to no group)
         cls.account100.parent_id = cls.group1
         cls.account200.parent_id = cls.group2
         cls.account201.parent_id = cls.group2
@@ -244,9 +244,8 @@ class TestTrialBalanceReport(AccountTestInvoicingCommon):
 
     def check_partner_in_report(self, account_id, partner_id, total_amount):
         partner_in_report = False
-        if account_id in total_amount.keys():
-            if partner_id in total_amount[account_id]:
-                partner_in_report = True
+        if account_id in total_amount and partner_id in total_amount[account_id]:
+            partner_in_report = True
         return partner_in_report
 
     def _get_partner_lines(self, account_id, partner_id, total_amount):
@@ -264,7 +263,7 @@ class TestTrialBalanceReport(AccountTestInvoicingCommon):
         total = 0.0
         for account in trial_balance:
             if account["type"] == "account_type":
-                for key in account.keys():
+                for key in account:
                     if key == feature:
                         total += account[key]
         return total

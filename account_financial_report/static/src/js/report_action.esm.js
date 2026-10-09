@@ -1,7 +1,6 @@
-/** @odoo-module **/
 import {ReportAction} from "@web/webclient/actions/reports/report_action";
-import {patch} from "@web/core/utils/patch";
 import {enrichWithActionLinks} from "./report.esm";
+import {patch} from "@web/core/utils/patch";
 
 const MODULE_NAME = "account_financial_report";
 
@@ -21,7 +20,7 @@ patch(ReportAction.prototype, {
     },
 
     export() {
-        // Odoo 20 : ir.actions.report n'a plus de report_file.
+        // Odoo 20: ir.actions.report no longer has a report_file.
         this.action.doAction({
             type: "ir.actions.report",
             report_type: "xlsx",

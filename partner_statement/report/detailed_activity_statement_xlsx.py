@@ -576,26 +576,28 @@ class DetailedActivityStatementXslx(models.AbstractModel):
             if len(objects) == 1 and objects.lang
             else self.env.user.partner_id.lang
         )
-        self = self.with_context(lang=lang)
-        report_model = self.env["report.partner_statement.detailed_activity_statement"]
-        self._define_formats(workbook)
+        report = self.with_context(lang=lang)
+        report_model = report.env[
+            "report.partner_statement.detailed_activity_statement"
+        ]
+        report._define_formats(workbook)
         FORMATS["format_distributed"] = workbook.add_format({"align": "vdistributed"})
         company_id = data.get("company_id", False)
         if company_id:
-            company = self.env["res.company"].browse(company_id)
+            company = report.env["res.company"].browse(company_id)
         else:
-            company = self.env.user.company_id
+            company = report.env.user.company_id
         data.update(report_model._get_report_values(data.get("partner_ids"), data))
-        partners = self.env["res.partner"].browse(data.get("partner_ids"))
-        sheet = workbook.add_worksheet(self.env._("Detailed Activity Statement"))
+        partners = report.env["res.partner"].browse(data.get("partner_ids"))
+        sheet = workbook.add_worksheet(report.env._("Detailed Activity Statement"))
         sheet.set_landscape()
         row_pos = 0
-        row_pos = self._write_workbook_title(sheet, row_pos, data, company)
-        row_pos = self._write_workbook_date(sheet, row_pos, data, partners)
-        self._size_columns(sheet, data)
-        row_pos = self._write_pre_partners(sheet, row_pos, data, partners, company)
+        row_pos = report._write_workbook_title(sheet, row_pos, data, company)
+        row_pos = report._write_workbook_date(sheet, row_pos, data, partners)
+        report._size_columns(sheet, data)
+        row_pos = report._write_pre_partners(sheet, row_pos, data, partners, company)
         for partner in partners:
-            row_pos = self._write_partner(
+            row_pos = report._write_partner(
                 workbook, sheet, row_pos, data, partner, company
             )
-        row_pos = self._write_post_partners(sheet, row_pos, data, partners, company)
+        row_pos = report._write_post_partners(sheet, row_pos, data, partners, company)

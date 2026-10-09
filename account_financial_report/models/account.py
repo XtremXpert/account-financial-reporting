@@ -1,7 +1,8 @@
 # © 2018 Forest and Biomass Romania SA
 # License AGPL-3.0 or later (http://www.gnu.org/licenses/agpl.html).
-# Odoo 20 : account.group n'existe plus ; la hiérarchie vit sur account.account
-# (parent_id, parent_path, code_path). Un « groupe » = un compte parent.
+# Odoo 20: account.group no longer exists; the hierarchy lives on
+# account.account (parent_id, parent_path, code_path). A "group" is a parent
+# account.
 from odoo import api, fields, models
 
 
@@ -39,8 +40,8 @@ class AccountAccount(models.Model):
 
     @api.depends("code", "name", "parent_id.complete_code")
     def _compute_complete_code(self):
-        # Odoo 20 : certains plans comptables (ex. ca_2023) n'ont pas de code ;
-        # le nom sert alors de clé pour conserver un ordre hiérarchique stable.
+        # Odoo 20: some charts of accounts (e.g. ca_2023) have no account code;
+        # the name is then used as key to keep a stable hierarchical order.
         for account in self:
             key = account.code or account.name or ""
             if account.parent_id.complete_code:
@@ -50,7 +51,7 @@ class AccountAccount(models.Model):
 
     @api.depends("child_account_ids", "child_account_ids.compute_account_ids")
     def _compute_group_accounts(self):
-        """Tous les comptes descendants (feuilles et parents intermédiaires)."""
+        """All descendant accounts (leaves and intermediate parents)."""
         for account in self:
             descendants = account.child_account_ids
             for child in account.child_account_ids:

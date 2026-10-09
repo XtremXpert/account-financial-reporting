@@ -1,6 +1,5 @@
-/** @odoo-module **/
-// Odoo 20 / Owl 3 : l'action de rapport n'expose plus de référence d'iframe ;
-// l'enrichissement se fait au chargement de l'iframe (voir report_action.esm.js).
+// Odoo 20 / Owl 3: the report action no longer exposes an iframe reference;
+// the links are added when the iframe is loaded (see report_action.esm.js).
 
 function toTitleCase(str) {
     return str
@@ -12,10 +11,10 @@ function toTitleCase(str) {
 }
 
 /**
- * Entoure d'un lien chaque élément [res-model][domain] du document rendu,
- * pour ouvrir la liste correspondante dans Odoo.
- * @param {Object} component composant disposant de env.services.action
- * @param {Document} doc document (celui de l'iframe)
+ * Wrap each [res-model][domain] element of the rendered document in a link
+ * opening the matching list view in Odoo.
+ * @param {Object} component component providing env.services.action
+ * @param {Document} doc document (the iframe one)
  */
 export function enrichWithActionLinks(component, doc) {
     const elementsToWrap = doc.querySelectorAll("[res-model][domain]");

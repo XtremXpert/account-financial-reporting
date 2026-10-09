@@ -61,11 +61,9 @@ class TestOutstandingStatement(TransactionCase):
         self.assertDictEqual(
             statement,
             {
-                **{
-                    "type": "ir.actions.report",
-                    "report_name": self.report_name,
-                    "report_type": "qweb-pdf",
-                },
+                "type": "ir.actions.report",
+                "report_name": self.report_name,
+                "report_type": "qweb-pdf",
                 **statement,
             },
             "There was an error and the PDF report was not generated.",
@@ -76,11 +74,9 @@ class TestOutstandingStatement(TransactionCase):
         self.assertDictEqual(
             statement_xlsx,
             {
-                **{
-                    "type": "ir.actions.report",
-                    "report_name": self.report_name_xlsx,
-                    "report_type": "xlsx",
-                },
+                "type": "ir.actions.report",
+                "report_name": self.report_name_xlsx,
+                "report_type": "xlsx",
                 **statement_xlsx,
             },
             "There was an error and the PDF report was not generated.",

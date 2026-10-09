@@ -222,7 +222,7 @@ class JournalLedgerReport(models.AbstractModel):
                 tax_description,
                 tax_name,
             ) in self.env.cr.fetchall():
-                if move_line_id not in move_line_ids_taxes_data.keys():
+                if move_line_id not in move_line_ids_taxes_data:
                     move_line_ids_taxes_data[move_line_id] = {}
                 move_line_ids_taxes_data[move_line_id][account_tax_id] = {
                     "name": tax_name,
@@ -270,7 +270,7 @@ class JournalLedgerReport(models.AbstractModel):
                     tax_ids += ml_data["tax_ids"]
                 tax_ids = list(set(tax_ids))
                 journal_id = ml_data["journal_id"]
-                if journal_id not in journals_taxes_data.keys():
+                if journal_id not in journals_taxes_data:
                     journals_taxes_data[journal_id] = {}
                 taxes = (
                     self.env["account.tax"]
@@ -302,12 +302,8 @@ class JournalLedgerReport(models.AbstractModel):
                             field_key
                         ]
         journals_taxes_data_2 = {}
-        for journal_id in journals_taxes_data.keys():
-            journals_taxes_data_2[journal_id] = []
-            for tax_id in journals_taxes_data[journal_id].keys():
-                journals_taxes_data_2[journal_id] += [
-                    journals_taxes_data[journal_id][tax_id]
-                ]
+        for journal_id, taxes_data in journals_taxes_data.items():
+            journals_taxes_data_2[journal_id] = list(taxes_data.values())
         return journals_taxes_data_2
 
     def _get_report_values(self, docids, data):
@@ -320,7 +316,7 @@ class JournalLedgerReport(models.AbstractModel):
         move_ids, moves_data, move_ids_data = self._get_moves(wizard, journal_ids)
         journal_moves_data = {}
         for key, items in groupby(moves_data, operator.itemgetter("journal_id")):
-            if key not in journal_moves_data.keys():
+            if key not in journal_moves_data:
                 journal_moves_data[key] = []
             journal_moves_data[key] += list(items)
         move_lines_data = account_ids_data = partner_ids_data = currency_ids_data = (
@@ -336,7 +332,7 @@ class JournalLedgerReport(models.AbstractModel):
         for move_data in moves_data:
             move_id = move_data["move_id"]
             move_data["report_move_lines"] = []
-            if move_id in move_lines_data.keys():
+            if move_id in move_lines_data:
                 move_data["report_move_lines"] += move_lines_data[move_id]
         journals_taxes_data = {}
         if moves_data:
@@ -345,20 +341,17 @@ class JournalLedgerReport(models.AbstractModel):
             journal_id = journal_ledger_data["id"]
             journal_ledger_data["tax_lines"] = journals_taxes_data.get(journal_id, [])
         journal_totals = {}
-        for move_id in move_lines_data.keys():
+        for move_id in move_lines_data:
             for move_line_data in move_lines_data[move_id]:
                 journal_id = move_line_data["journal_id"]
-                if journal_id not in journal_totals.keys():
+                if journal_id not in journal_totals:
                     journal_totals[journal_id] = {"debit": 0.0, "credit": 0.0}
                 for item in ["debit", "credit"]:
                     journal_totals[journal_id][item] += move_line_data[item]
         for journal_ledger_data in journal_ledgers_data:
             journal_id = journal_ledger_data["id"]
-            if journal_id in journal_moves_data.keys():
-                journal_ledger_data["report_moves"] = journal_moves_data[journal_id]
-            else:
-                journal_ledger_data["report_moves"] = []
-            if journal_id in journal_totals.keys():
+            journal_ledger_data["report_moves"] = journal_moves_data.get(journal_id, [])
+            if journal_id in journal_totals:
                 for item in ["debit", "credit"]:
                     journal_ledger_data[item] += journal_totals[journal_id][item]
         res.update(

@@ -2,7 +2,7 @@
 #  License AGPL-3.0 or later (http://www.gnu.org/licenses/agpl.html).
 
 from odoo.tests import TransactionCase, tagged
-from odoo.tests import reports as test_reports  # déplacé en Odoo 20
+from odoo.tests import reports as test_reports  # moved in Odoo 20
 from odoo.tools import DEFAULT_SERVER_DATE_FORMAT
 
 

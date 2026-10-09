@@ -1,7 +1,7 @@
 # Copyright 2018 ForgeFlow, S.L. (https://www.forgeflow.com)
 # License AGPL-3.0 or later (https://www.gnu.org/licenses/agpl.html).
 
-from datetime import datetime, timedelta
+from datetime import timedelta
 
 from odoo import api, fields, models
 from odoo.tools.misc import DEFAULT_SERVER_DATE_FORMAT
@@ -30,7 +30,7 @@ class ReportStatementCommon(models.AbstractModel):
         self, date, date_format=DEFAULT_SERVER_DATE_FORMAT
     ):
         if isinstance(date, str):
-            date = datetime.strptime(date, DEFAULT_SERVER_DATE_FORMAT)
+            date = fields.Date.to_date(date)
         return date.strftime(date_format) if date else ""
 
     def _get_account_display_lines(
@@ -244,7 +244,7 @@ class ReportStatementCommon(models.AbstractModel):
     def _get_account_show_buckets(
         self, company_id, partner_ids, date_end, account_type, aging_type
     ):
-        buckets = dict(map(lambda x: (x, []), partner_ids))
+        buckets = {x: [] for x in partner_ids}
         partners = tuple(partner_ids)
         full_dates = self._get_bucket_dates(date_end, aging_type)
         # pylint: disable=E8103
@@ -360,32 +360,28 @@ class ReportStatementCommon(models.AbstractModel):
         partner_ids = data["partner_ids"]
         date_start = data.get("date_start")
         if date_start and isinstance(date_start, str):
-            date_start = datetime.strptime(
-                date_start, DEFAULT_SERVER_DATE_FORMAT
-            ).date()
+            date_start = fields.Date.to_date(date_start)
         date_end = data["date_end"]
         if isinstance(date_end, str):
-            date_end = datetime.strptime(date_end, DEFAULT_SERVER_DATE_FORMAT).date()
+            date_end = fields.Date.to_date(date_end)
         account_type = data["account_type"]
         excluded_accounts_ids = data["excluded_accounts_ids"]
+        context = {}
         if excluded_accounts_ids:
-            self = self.with_context(
-                excluded_accounts_ids=excluded_accounts_ids,
-            )
+            context["excluded_accounts_ids"] = excluded_accounts_ids
         show_only_overdue = data["show_only_overdue"]
         if show_only_overdue:
-            self = self.with_context(
-                show_only_overdue=show_only_overdue,
-            )
+            context["show_only_overdue"] = show_only_overdue
+        statement = self.with_context(**context)
         aging_type = data["aging_type"]
         is_activity = data.get("is_activity")
         is_detailed = data.get("is_detailed")
-        today = fields.Date.context_today(self)
+        today = fields.Date.context_today(statement)
         amount_field = data.get("amount_field", "amount")
 
         # There should be relatively few of these, so to speed performance
         # we cache them - default needed if partner lang not set
-        self.env.cr.execute(
+        statement.env.cr.execute(
             """
             SELECT p.id, l.date_format
             FROM res_partner p LEFT JOIN res_lang l ON p.lang=l.code
@@ -393,51 +389,53 @@ class ReportStatementCommon(models.AbstractModel):
             """,
             {"partner_ids": tuple(partner_ids)},
         )
-        date_formats = {r[0]: r[1] for r in self.env.cr.fetchall()}
-        default_fmt = self.env["res.lang"]._lang_get(self.env.user.lang).date_format
-        currencies = {x.id: x for x in self.env["res.currency"].search([])}
+        date_formats = {r[0]: r[1] for r in statement.env.cr.fetchall()}
+        default_fmt = (
+            statement.env["res.lang"]._lang_get(statement.env.user.lang).date_format
+        )
+        currencies = {x.id: x for x in statement.env["res.currency"].search([])}
 
         res = {}
         # get base data
         prior_day = date_start - timedelta(days=1) if date_start else None
         prior_lines = (
-            self._get_account_display_prior_lines(
+            statement._get_account_display_prior_lines(
                 company_id, partner_ids, prior_day, prior_day, account_type
             )
             if is_detailed
             else {}
         )
-        lines = self._get_account_display_lines(
+        lines = statement._get_account_display_lines(
             company_id, partner_ids, date_start, date_end, account_type
         )
         ending_lines = (
-            self._get_account_display_ending_lines(
+            statement._get_account_display_ending_lines(
                 company_id, partner_ids, date_start, date_end, account_type
             )
             if is_detailed
             else {}
         )
         reconciled_lines = (
-            self._get_account_display_reconciled_lines(
+            statement._get_account_display_reconciled_lines(
                 company_id, partner_ids, date_start, date_end, account_type
             )
             if is_activity
             else {}
         )
-        balances_forward = self._get_account_initial_balance(
+        balances_forward = statement._get_account_initial_balance(
             company_id, partner_ids, date_start, account_type
         )
 
         if data["show_aging_buckets"]:
-            buckets = self._get_account_show_buckets(
+            buckets = statement._get_account_show_buckets(
                 company_id, partner_ids, date_end, account_type, aging_type
             )
-            bucket_labels = self._get_bucket_labels(date_end, aging_type)
+            bucket_labels = statement._get_bucket_labels(date_end, aging_type)
         else:
             bucket_labels = {}
 
         # organize and format for report
-        format_date = self._format_date_to_partner_lang
+        format_date = statement._format_date_to_partner_lang
         partners_to_remove = set()
         for partner_id in partner_ids:
             res[partner_id] = {
@@ -457,7 +455,7 @@ class ReportStatementCommon(models.AbstractModel):
                 (
                     currency_dict[line["currency_id"]],
                     currencies,
-                ) = self._get_line_currency_defaults(
+                ) = statement._get_line_currency_defaults(
                     line["currency_id"],
                     currencies,
                     line["balance"],
@@ -469,7 +467,7 @@ class ReportStatementCommon(models.AbstractModel):
                     (
                         currency_dict[line["currency_id"]],
                         currencies,
-                    ) = self._get_line_currency_defaults(
+                    ) = statement._get_line_currency_defaults(
                         line["currency_id"], currencies, 0.0, 0.0
                     )
                 line_currency = currency_dict[line["currency_id"]]
@@ -482,7 +480,9 @@ class ReportStatementCommon(models.AbstractModel):
                     line["date_maturity"], date_formats.get(partner_id, default_fmt)
                 )
                 line_currency["prior_lines"].extend(
-                    self._add_currency_prior_line(line, currencies[line["currency_id"]])
+                    statement._add_currency_prior_line(
+                        line, currencies[line["currency_id"]]
+                    )
                 )
 
             for line in lines[partner_id]:
@@ -490,7 +490,7 @@ class ReportStatementCommon(models.AbstractModel):
                     (
                         currency_dict[line["currency_id"]],
                         currencies,
-                    ) = self._get_line_currency_defaults(
+                    ) = statement._get_line_currency_defaults(
                         line["currency_id"], currencies, 0.0, 0.0
                     )
                 line_currency = currency_dict[line["currency_id"]]
@@ -512,7 +512,7 @@ class ReportStatementCommon(models.AbstractModel):
                     line["open_amount"] = 0.0
                     line["applied_amount"] = 0.0
                 line_currency["lines"].extend(
-                    self._add_currency_line(line, currencies[line["currency_id"]])
+                    statement._add_currency_line(line, currencies[line["currency_id"]])
                 )
                 for line2 in reconciled_lines:
                     if line2["id"] in line["ids"]:
@@ -532,7 +532,7 @@ class ReportStatementCommon(models.AbstractModel):
                         )
                         if is_detailed:
                             line_currency["lines"].extend(
-                                self._add_currency_line(
+                                statement._add_currency_line(
                                     line2, currencies[line["currency_id"]]
                                 )
                             )
@@ -555,7 +555,7 @@ class ReportStatementCommon(models.AbstractModel):
                     line["date_maturity"], date_formats.get(partner_id, default_fmt)
                 )
                 line_currency["ending_lines"].extend(
-                    self._add_currency_ending_line(
+                    statement._add_currency_ending_line(
                         line, currencies[line["currency_id"]]
                     )
                 )
@@ -566,7 +566,7 @@ class ReportStatementCommon(models.AbstractModel):
                         (
                             currency_dict[line["currency_id"]],
                             currencies,
-                        ) = self._get_line_currency_defaults(
+                        ) = statement._get_line_currency_defaults(
                             line["currency_id"], currencies, 0.0, 0.0
                         )
                     line_currency = currency_dict[line["currency_id"]]
@@ -574,15 +574,16 @@ class ReportStatementCommon(models.AbstractModel):
 
             if len(partner_ids) > 1:
                 values = currency_dict.values()
-                if not any([v["lines"] or v["balance_forward"] for v in values]):
+                if not any(v["lines"] or v["balance_forward"] for v in values):
                     if data["filter_non_due_partners"]:
                         partners_to_remove.add(partner_id)
                         continue
                     else:
                         res[partner_id]["no_entries"] = True
-                if data["filter_negative_balances"]:
-                    if not all([v["amount_due"] >= 0.0 for v in values]):
-                        partners_to_remove.add(partner_id)
+                if data["filter_negative_balances"] and not all(
+                    v["amount_due"] >= 0.0 for v in values
+                ):
+                    partners_to_remove.add(partner_id)
 
         for partner in partners_to_remove:
             del res[partner]
@@ -591,16 +592,16 @@ class ReportStatementCommon(models.AbstractModel):
         return {
             "doc_ids": partner_ids,
             "doc_model": "res.partner",
-            "docs": self.env["res.partner"].browse(partner_ids),
+            "docs": statement.env["res.partner"].browse(partner_ids),
             "data": res,
-            "company": self.env["res.company"].browse(company_id),
+            "company": statement.env["res.company"].browse(company_id),
             "Currencies": currencies,
             "account_type": account_type,
             "excluded_accounts_ids": excluded_accounts_ids,
             "show_only_overdue": show_only_overdue,
             "is_detailed": is_detailed,
             "bucket_labels": bucket_labels,
-            "get_inv_addr": self._get_invoice_address,
-            "get_title": self._get_title,
-            "get_aging_buckets_title": self._get_aging_buckets_title,
+            "get_inv_addr": statement._get_invoice_address,
+            "get_title": statement._get_title,
+            "get_aging_buckets_title": statement._get_aging_buckets_title,
         }

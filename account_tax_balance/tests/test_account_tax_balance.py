@@ -3,7 +3,7 @@
 # Copyright 2019 Andrea Stirpe <a.stirpe@onestein.nl>
 # License AGPL-3.0 or later (http://www.gnu.org/licenses/agpl).
 
-from datetime import datetime, timedelta
+from datetime import timedelta
 
 from dateutil.rrule import MONTHLY
 
@@ -36,8 +36,8 @@ class TestAccountTaxBalance(HttpCase):
             {"name": "Fiscal year", "allow_overlap": False}
         )
         cls.range_generator = cls.env["date.range.generator"]
-        cls.current_year = datetime.now().year
-        cls.current_month = datetime.now().month
+        cls.current_year = fields.Date.today().year
+        cls.current_month = fields.Date.today().month
         range_generator = cls.range_generator.create(
             {
                 "date_start": f"{cls.current_year}-01-01",

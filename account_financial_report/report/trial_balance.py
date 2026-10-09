@@ -261,7 +261,7 @@ class TrialBalanceReport(models.AbstractModel):
                 total_amount[acc_id]["group_by_data"] = gb_data
         for tb in tb_initial_acc:
             acc_id = tb["account_id"]
-            if acc_id not in total_amount.keys():
+            if acc_id not in total_amount:
                 total_amount[acc_id] = self._prepare_total_amount(tb, foreign_currency)
                 total_amount[acc_id]["group_by_data"] = {}
                 total_amount[acc_id]["group_by_data"][0] = self._prepare_total_amount(
@@ -404,9 +404,11 @@ class TrialBalanceReport(models.AbstractModel):
         for acc_id, total_data in total_amount.items():
             tmp_list = sorted(
                 total_data.items(),
-                key=lambda x: ("\xff" if not x[0] else x[1]["partner_name"])
-                if isinstance(x[0], int)
-                else "!",  # ~ is the last ASCII printable char, and ! the first
+                key=lambda x: (
+                    ("\xff" if not x[0] else x[1]["partner_name"])
+                    if isinstance(x[0], int)
+                    else "!"
+                ),  # ~ is the last ASCII printable char, and ! the first
             )
             total_amount[acc_id] = {}
             for key, value in tmp_list:
@@ -510,8 +512,9 @@ class TrialBalanceReport(models.AbstractModel):
         for account_rg in tb_initial_acc_rg:
             element = list(
                 filter(
-                    lambda acc_dict: acc_dict["account_id"]
-                    == account_rg["account_id"][0],
+                    lambda acc_dict: (
+                        acc_dict["account_id"] == account_rg["account_id"][0]
+                    ),
                     tb_initial_acc,
                 )
             )
@@ -734,8 +737,8 @@ class TrialBalanceReport(models.AbstractModel):
         trial_balance = sorted(trial_balance, key=lambda k: k["name"])
         return trial_balance, total_amount_grouped
 
-    # Odoo 20 : plus d'account.group. Un « groupe » est un compte parent
-    # (account.account.parent_id) ; ses comptes sont ses descendants.
+    # Odoo 20: no more account.group. A "group" is a parent account
+    # (account.account.parent_id); its accounts are its descendants.
     def _group_vals(self, group, foreign_currency):
         vals = {
             "id": group.id,
@@ -780,7 +783,7 @@ class TrialBalanceReport(models.AbstractModel):
             else:
                 processed_groups.append(parent_id)
             while parent_id:
-                if parent_id not in groups_data.keys():
+                if parent_id not in groups_data:
                     parent = (
                         self.env["account.account"]
                         .with_context(active_test=False)
@@ -826,10 +829,18 @@ class TrialBalanceReport(models.AbstractModel):
             .with_context(active_test=False)
             .browse(account_group_relation.keys())
         )
-        groups_data = {group.id: self._group_vals(group, foreign_currency) for group in groups}
-        for group_id in account_group_relation.keys():
-            for account_id in account_group_relation[group_id]:
-                for key in ("initial_balance", "debit", "credit", "balance", "ending_balance"):
+        groups_data = {
+            group.id: self._group_vals(group, foreign_currency) for group in groups
+        }
+        for group_id, account_ids in account_group_relation.items():
+            for account_id in account_ids:
+                for key in (
+                    "initial_balance",
+                    "debit",
+                    "credit",
+                    "balance",
+                    "ending_balance",
+                ):
                     groups_data[group_id][key] += total_amount[account_id][key]
                 if foreign_currency:
                     groups_data[group_id]["initial_currency_balance"] += total_amount[
@@ -847,8 +858,8 @@ class TrialBalanceReport(models.AbstractModel):
         return groups_data
 
     def _get_computed_groups_data(self, accounts_data, total_amount, foreign_currency):
-        """Regroupement par préfixe de code : un compte parent regroupe les
-        comptes dont le code commence par le sien."""
+        """Grouping by code prefix: a parent account groups the accounts
+        whose code starts with its own."""
         groups = (
             self.env["account.account"]
             .with_context(active_test=False)
@@ -864,7 +875,13 @@ class TrialBalanceReport(models.AbstractModel):
                     acc_id = account["id"]
                     if acc_id == group.id:
                         continue
-                    for key in ("initial_balance", "debit", "credit", "balance", "ending_balance"):
+                    for key in (
+                        "initial_balance",
+                        "debit",
+                        "credit",
+                        "balance",
+                        "ending_balance",
+                    ):
                         groups_data[group.id][key] += total_amount[acc_id][key]
                     if foreign_currency:
                         groups_data[group.id]["initial_currency_balance"] += (
@@ -917,7 +934,7 @@ class TrialBalanceReport(models.AbstractModel):
             )
         trial_balance = []
         if not show_partner_details:
-            for account_id in accounts_data.keys():
+            for account_id in accounts_data:
                 accounts_data[account_id].update(
                     {
                         "initial_balance": total_amount[account_id]["initial_balance"],
@@ -925,15 +942,9 @@ class TrialBalanceReport(models.AbstractModel):
                         "debit": total_amount[account_id]["debit"],
                         "balance": total_amount[account_id]["balance"],
                         "ending_balance": total_amount[account_id]["ending_balance"],
-                        "group_by": (
-                            total_amount[account_id]["group_by"]
-                            if "group_by" in total_amount[account_id]
-                            else False
-                        ),
+                        "group_by": (total_amount[account_id].get("group_by", False)),
                         "group_by_data": (
-                            total_amount[account_id]["group_by_data"]
-                            if "group_by_data" in total_amount[account_id]
-                            else False
+                            total_amount[account_id].get("group_by_data", False)
                         ),
                         "type": "account_type",
                     }
@@ -966,7 +977,7 @@ class TrialBalanceReport(models.AbstractModel):
                 )
         else:
             if foreign_currency:
-                for account_id in accounts_data.keys():
+                for account_id in accounts_data:
                     total_amount[account_id]["currency_id"] = accounts_data[account_id][
                         "currency_id"
                     ]

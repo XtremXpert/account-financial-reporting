@@ -38,22 +38,22 @@ class ResConfigSettings(models.TransientModel):
     )
 
     def set_values(self):
-        self = self.with_context(active_test=False)
+        settings = self.with_context(active_test=False)
         # default values fields
-        IrDefault = self.env["ir.default"].sudo()
-        for name, field in self._fields.items():
+        IrDefault = settings.env["ir.default"].sudo()
+        for name, field in settings._fields.items():
             if (
                 name.startswith("default_")
                 and field.default_model == "statement.common.wizard"
             ):
-                if isinstance(self[name], models.BaseModel):
-                    if self._fields[name].type == "many2one":
-                        value = self[name].id
+                if isinstance(settings[name], models.BaseModel):
+                    if settings._fields[name].type == "many2one":
+                        value = settings[name].id
                     else:
-                        value = self[name].ids
+                        value = settings[name].ids
                 else:
-                    value = self[name]
+                    value = settings[name]
                 IrDefault.set("activity.statement.wizard", name[8:], value)
                 IrDefault.set("outstanding.statement.wizard", name[8:], value)
                 IrDefault.set("detailed.activity.statement.wizard", name[8:], value)
-        return super().set_values()
+        return super(ResConfigSettings, settings).set_values()
