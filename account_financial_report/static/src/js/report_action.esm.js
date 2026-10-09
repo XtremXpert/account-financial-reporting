@@ -14,8 +14,9 @@ patch(ReportAction.prototype, {
 
     onIframeLoaded(ev) {
         super.onIframeLoaded(...arguments);
-        if (this.isAccountFinancialReport) {
-            enrichWithActionLinks(this, ev.currentTarget.contentDocument);
+        const doc = ev.currentTarget.contentDocument;
+        if (this.isAccountFinancialReport && doc) {
+            enrichWithActionLinks(this, doc);
         }
     },
 
