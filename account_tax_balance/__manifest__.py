@@ -6,7 +6,7 @@
 {
     "name": "Tax Balance",
     "summary": "Compute tax balances based on date range",
-    "version": "20.0.1.0.2",
+    "version": "20.0.1.0.0",
     "development_status": "Mature",
     "category": "Invoices & Payments",
     "website": "https://github.com/OCA/account-financial-reporting",
@@ -21,6 +21,10 @@
         "views/account_tax_view.xml",
         "security/ir.access.csv",
     ],
-    "images": ["images/tax_balance.png"],
+    "assets": {
+        "web.assets_tests": [
+            "account_tax_balance/static/tests/tours/*",
+        ],
+    },
     "pre_init_hook": "pre_init_hook",
 }

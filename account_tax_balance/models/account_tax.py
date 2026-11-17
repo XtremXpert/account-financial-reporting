@@ -71,21 +71,17 @@ class AccountTax(models.Model):
         self.env.cr.execute(query, params)
         return [r[0] for r in self.env.cr.fetchall()]
 
+    @api.depends_context("from_date", "to_date", "company_ids")
     def _compute_has_moves(self):
         ids_with_moves = set(self._account_tax_ids_with_moves())
         for tax in self:
             tax.has_moves = tax.id in ids_with_moves
 
     @api.model
-    def _is_unsupported_search_operator(self, operator):
-        return operator != "=" and operator != "in"
-
-    @api.model
     def _search_has_moves(self, operator, value):
-        if self._is_unsupported_search_operator(operator) or not value:
-            raise ValueError(self.env._("Unsupported search operator"))
-        ids_with_moves = self._account_tax_ids_with_moves()
-        return Domain("id", "in", ids_with_moves)
+        if operator != "in":
+            return NotImplemented
+        return Domain("id", "in", self._account_tax_ids_with_moves())
 
     @api.depends_context(
         "from_date",
